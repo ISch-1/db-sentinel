@@ -1,0 +1,130 @@
+# db-sentinel — local development stack.
+#
+#   docker compose up -d
+#
+# Everything runs locally. LocalStack emulates AWS (DynamoDB, CloudWatch) so
+# the Terraform and boto3 code exercises the real AWS APIs without an account
+# or a bill. The "managed database" the platform watches is a real Postgres
+# container standing in for RDS/Aurora.
+
+services:
+
+  # --- The database we keep reliable (stands in for RDS / Aurora) ---
+  database:
+    image: postgres:16-alpine
+    container_name: dbs-database
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # --- LocalStack: AWS emulated locally (DynamoDB, CloudWatch, IAM) ---
+  localstack:
+    image: localstack/localstack:3.7
+    container_name: dbs-localstack
+    restart: unless-stopped
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: dynamodb,cloudwatch,iam,sts
+      DEBUG: "0"
+      AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+
+  # --- The Sentinel agent: probes, heals, predicts (Python) ---
+  sentinel:
+    build: ./sentinel
+    container_name: dbs-sentinel
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+    environment:
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_USER: app
+      DB_PASSWORD: app
+      DB_NAME: appdb
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      METRICS_PORT: "9200"
+      HEALING_ENABLED: "true"
+    ports:
+      - "9200:9200"   # Prometheus metrics + chaos/admin API
+
+  # --- The Control Plane: SLOs, error budgets, incident API (Java) ---
+  control-plane:
+    build: ./control-plane
+    container_name: dbs-control-plane
+    restart: unless-stopped
+    depends_on:
+      localstack:
+        condition: service_started
+    environment:
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      SENTINEL_METRICS_URL: http://sentinel:9200/metrics
+    ports:
+      - "8080:8080"   # REST API
+      - "9100:9100"   # Prometheus metrics
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: dbs-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: dbs-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  db-data:
+  localstack-data:
+  prometheus-data:
+  grafana-data:

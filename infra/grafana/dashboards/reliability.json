@@ -1,0 +1,96 @@
+{
+  "uid": "dbs-reliability",
+  "title": "Reliability — db-sentinel",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "5s",
+  "tags": ["db-sentinel", "sre"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Database Up",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 6 },
+      "targets": [{ "expr": "dbs_database_up" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Connection Utilization",
+      "gridPos": { "x": 6, "y": 0, "w": 18, "h": 6 },
+      "targets": [
+        { "expr": "dbs_connections_utilization", "legendFormat": "utilization" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 0.8 },
+            { "color": "red", "value": 0.95 }
+          ]}
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Anomaly Score (ML)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "dbs_anomaly_score", "legendFormat": "score" },
+        { "expr": "dbs_anomaly_detected", "legendFormat": "flagged" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Idle-in-transaction & self-healing actions",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "dbs_idle_in_transaction", "legendFormat": "idle in txn" },
+        { "expr": "sum by (action) (rate(dbs_healing_actions_total{outcome=\"success\"}[1m]))", "legendFormat": "healed: {{action}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Availability (probes)",
+      "gridPos": { "x": 0, "y": 13, "w": 8, "h": 6 },
+      "targets": [
+        { "expr": "1 - (sum(dbs_probes_failed_total) / clamp_min(sum(dbs_probes_total), 1))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Incidents opened / resolved",
+      "gridPos": { "x": 8, "y": 13, "w": 8, "h": 6 },
+      "targets": [
+        { "expr": "sum(dbs_incidents_opened_total)", "legendFormat": "opened" },
+        { "expr": "sum(dbs_incidents_resolved_total)", "legendFormat": "resolved" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "MTTR p90 (s)",
+      "gridPos": { "x": 16, "y": 13, "w": 8, "h": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.90, sum by (le) (rate(dbs_mttr_seconds_bucket[10m])))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ]
+}

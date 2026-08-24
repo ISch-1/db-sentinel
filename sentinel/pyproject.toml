@@ -1,0 +1,16 @@
+[project]
+name = "db-sentinel"
+version = "0.1.0"
+description = "SRE agent that keeps a managed database reliable: probes, self-healing, ML anomaly detection"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
