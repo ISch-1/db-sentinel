@@ -32,7 +32,9 @@ logging.basicConfig(
 log = logging.getLogger("sentinel.main")
 
 app = Flask(__name__)
-_detector = AnomalyDetector(window=CONFIG.anomaly_window, contamination=CONFIG.anomaly_contamination)
+_detector = AnomalyDetector(
+    window=CONFIG.anomaly_window, contamination=CONFIG.anomaly_contamination
+)
 _incidents = IncidentStore()
 _stop = threading.Event()
 

@@ -12,8 +12,8 @@ so you can run it in "observe only" mode before trusting it in production.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import psycopg
 

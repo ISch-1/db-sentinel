@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import boto3
 from botocore.config import Config as BotoConfig
@@ -35,7 +35,7 @@ class IncidentStore:
 
     def open_incident(self, target: str, kind: str, detail: str) -> str:
         incident_id = str(uuid.uuid4())
-        opened_at = datetime.now(timezone.utc).isoformat()
+        opened_at = datetime.now(UTC).isoformat()
         try:
             self._client.put_item(
                 TableName=self._table,

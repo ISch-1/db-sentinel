@@ -68,11 +68,11 @@ resource "aws_dynamodb_table_item" "slo_latency" {
   hash_key   = aws_dynamodb_table.slo_definitions.hash_key
 
   item = jsonencode({
-    slo_id      = { S = "latency_p99" }
-    description = { S = "Fraction of queries under the latency threshold" }
-    target      = { N = tostring(var.slo_availability_target) }
-    window_days = { N = "30" }
-    kind        = { S = "latency" }
+    slo_id       = { S = "latency_p99" }
+    description  = { S = "Fraction of queries under the latency threshold" }
+    target       = { N = tostring(var.slo_availability_target) }
+    window_days  = { N = "30" }
+    kind         = { S = "latency" }
     threshold_ms = { N = tostring(var.latency_slo_ms) }
   })
 }
